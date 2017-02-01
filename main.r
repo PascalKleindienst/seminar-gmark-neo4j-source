@@ -41,20 +41,17 @@ gmark <- function(output, workload, config, gMarkPath, graph="graph.csv", worklo
 
 	# create graph instance csv and workload in internal format
 	command <- paste0('"', file.path(gMarkPath, "test"), '"')
-	#system(paste(command, args["c"], args["g"], args["w"], args["r"], "-a"))
+	system(paste(command, args["c"], args["g"], args["w"], args["r"], "-a"))
 	
 	# create translated workload
 	command <- paste0('"', file.path(gMarkPath, "querytranslate", "test"), '"')
-	#system(paste(command, args["w"], args["o"]))
+	system(paste(command, args["w"], args["o"]))
 }
 
 # 
 # Import Data into neo4j
 # 
-import <- function(output, csv="graph.csv") {
-	# create graph instance
-	graph <- startGraph("http://localhost:7474/db/data", username="neo4j", password="seminar")
-
+import <- function(graph, output, csv="graph.csv") {
 	# create index
 	cypher(graph, "CREATE INDEX ON :node(id)")
 
@@ -64,7 +61,7 @@ import <- function(output, csv="graph.csv") {
 
 	for (rel in relationships) {
 		# split csv by relationships
-		print(rel)
+		print(sprintf("Importing relationship: %s", rel))
 		rows <- subset(data, data[[2]] %in% rel)
 		file <- file.path(output, paste0("graph.", rel, ".csv"))
 		write.table(rows, file, row.names=FALSE, col.names=FALSE)
@@ -95,10 +92,15 @@ main <- function() {
 	wd <- getwd()
 	output <- file.path(wd, "result")
 	workload <- file.path(output, "workload-queries")
+	config <- file.path(wd, "../gmark/use-cases/social-network.xml")
 
+	# Setup
 	setup(output, workload)
-	gmark(output, workload, file.path(wd, "../gmark/use-cases/shop.xml"), file.path(wd, "../gmark/src"))
-	import(output)
+	gmark(output, workload, config, file.path(wd, "../gmark/src"))
+	
+	# Prepare graph and run workloads
+	graph <- startGraph("http://localhost:7474/db/data", username="neo4j", password="seminar")
+	import(graph, output)
 }
 
 main()
