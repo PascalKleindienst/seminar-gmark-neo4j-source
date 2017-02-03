@@ -10,11 +10,11 @@ setup <- function(output, workload) {
 		library("RNeo4j")
 	}
 
-	#if (!require("XML")) {
-	#	install.packages("XML", repos="http://cran.r-project.org")
-	#	library("XML")
-	#	library("methods")
-	#}
+	if (!require("XML")) {
+		install.packages("XML", repos="http://cran.r-project.org")
+		library("XML")
+		library("methods")
+	}
 	
 	# create dirs
 	if (!file.exists(output)) {
@@ -84,6 +84,51 @@ import <- function(graph, output, csv="graph.csv") {
 	}
 }
 
+
+#
+# Workload
+#
+run_workload <- function(graph, queries, workload) {
+	# load xml workload metadata
+	data <- xmlParse(file=workload)
+	df <- data.frame(
+	    "number" = sapply(data["//metadata/number"], xmlValue),
+	    "arity" = sapply(data["//metadata/arity"], xmlValue),
+	    "selectivity" = sapply(data["//metadata/selectivity"], xmlValue),
+	    "multiplicity" = sapply(data["//metadata/multiplicity"], xmlValue),
+	    "conjunct" = sapply(data["//metadata/conjunct"], xmlValue),
+	    "disjuncts" = sapply(data["//metadata/disjuncts"], xmlValue),
+	    "length" = sapply(data["//metadata/length"], xmlValue)
+	)
+
+	# add empty query and time columns
+	namevector <- c("query","time")
+	df[,namevector] <- NA
+
+	# query files
+	files <- Sys.glob(file.path(queries, 'query-*.cypher'))
+	cat("number,arity,selectivity,multiplicity,conjunct,disjuncts,length,query,time",file="result.csv",sep="\n")
+
+	f <- function(row, files, queries) {
+		fileName <- file.path(queries, sprintf("query-%s.cypher", row$number))
+
+		if (fileName %in% files) {
+			query <- readChar(fileName, file.info(fileName)$size)
+			print(sprintf("Running query %s", row$number))
+
+			start.time <- Sys.time()
+			#result <- cypher(graph, query)
+			end.time <- Sys.time()
+
+			row$query <- query
+			row$time <- end.time - start.time
+			write.table(row, file="result.csv", sep = ",", row.names = FALSE, col.names = FALSE, append = TRUE)
+		}
+	}
+
+	by(df, 1:nrow(df), f, files=files, queries=queries)
+}
+
 #
 # Main
 # 
@@ -96,11 +141,12 @@ main <- function() {
 
 	# Setup
 	setup(output, workload)
-	gmark(output, workload, config, file.path(wd, "../gmark/src"))
+	#gmark(output, workload, config, file.path(wd, "../gmark/src"))
 	
 	# Prepare graph and run workloads
 	graph <- startGraph("http://localhost:7474/db/data", username="neo4j", password="seminar")
-	import(graph, output)
+	#import(graph, output)
+	run_workload(graph, workload, file.path(output, "workload.xml"))
 }
 
 main()
