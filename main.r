@@ -138,7 +138,7 @@ run_workload <- function(graph, queries, workload) {
 			# write data into file
 			row$query <- query
 			row$time <- result
-			write.table(row, file="result.csv", sep = ",", row.names = FALSE, col.names = FALSE, append = TRUE)
+			write.table(row, file="result.csv", sep = ",", row.names = FALSE, col.names = FALSE, append = TRUE, qmethod = "double")
 		}
 	}
 
