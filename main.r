@@ -1,5 +1,10 @@
 #!/usr/bin/env Rscript
 
+# 
+# Helpers
+# 
+printf <- function(...) cat(sprintf(...))
+
 #
 # Load packages and create dirs
 # 
@@ -61,7 +66,7 @@ import <- function(graph, output, csv="graph.csv") {
 
 	for (rel in relationships) {
 		# split csv by relationships
-		print(sprintf("Importing relationship: %s", rel))
+		printf("Importing relationship: %s\n", rel)
 		rows <- subset(data, data[[2]] %in% rel)
 		file <- file.path(output, paste0("graph.", rel, ".csv"))
 		write.table(rows, file, row.names=FALSE, col.names=FALSE)
@@ -109,19 +114,29 @@ run_workload <- function(graph, queries, workload) {
 	files <- Sys.glob(file.path(queries, 'query-*.cypher'))
 	cat("number,arity,selectivity,multiplicity,conjunct,disjuncts,length,query,time",file="result.csv",sep="\n")
 
+	# run workload
 	f <- function(row, files, queries) {
 		fileName <- file.path(queries, sprintf("query-%s.cypher", row$number))
 
 		if (fileName %in% files) {
 			query <- readChar(fileName, file.info(fileName)$size)
-			print(sprintf("Running query %s", row$number))
+			printf("Running query %s\n", row$number)
 
-			start.time <- Sys.time()
-			#result <- cypher(graph, query)
-			end.time <- Sys.time()
+			# try to execute query and measure execution time, else time = -1
+			result <- tryCatch({
+				start.time <- Sys.time()
+				data <- cypher(graph, query)
+				end.time <- Sys.time()
 
+				time <- (end.time - start.time)
+			}, error = function(err) {
+				printf("\tInvalid cypher query in query-%s.cypher\n", row$number)
+				return(-1)
+			})
+
+			# write data into file
 			row$query <- query
-			row$time <- end.time - start.time
+			row$time <- result
 			write.table(row, file="result.csv", sep = ",", row.names = FALSE, col.names = FALSE, append = TRUE)
 		}
 	}
@@ -141,11 +156,11 @@ main <- function() {
 
 	# Setup
 	setup(output, workload)
-	#gmark(output, workload, config, file.path(wd, "../gmark/src"))
+	gmark(output, workload, config, file.path(wd, "../gmark/src"))
 	
 	# Prepare graph and run workloads
 	graph <- startGraph("http://localhost:7474/db/data", username="neo4j", password="seminar")
-	#import(graph, output)
+	import(graph, output)
 	run_workload(graph, workload, file.path(output, "workload.xml"))
 }
 
