@@ -1,5 +1,10 @@
 #!/usr/bin/env Rscript
 
+#
+# Globals
+# 
+FIX_QUERY = TRUE
+
 # 
 # Helpers
 # 
@@ -123,6 +128,11 @@ run_workload <- function(graph, queries, workload) {
 			query <- gsub("\r?\n|\r", " ", query) # remove line breaks from query
 			printf("Running query %s\n", row$number)
 
+			# try to fix UNION queries
+			if (FIX_QUERY) {
+				query <- gsub("UNION ", "", query, ignore.case=TRUE)
+			}
+
 			# try to execute query and measure execution time, else time = -1
 			result <- tryCatch({
 				start.time <- Sys.time()
@@ -157,11 +167,11 @@ main <- function() {
 
 	# Setup
 	setup(output, workload)
-	#gmark(output, workload, config, file.path(wd, "../gmark/src"))
+	gmark(output, workload, config, file.path(wd, "../gmark/src"))
 	
 	# Prepare graph and run workloads
 	graph <- startGraph("http://localhost:7474/db/data", username="neo4j", password="seminar")
-	#import(graph, output)
+	import(graph, output)
 	run_workload(graph, workload, file.path(output, "workload.xml"))
 }
 
